@@ -1,4 +1,4 @@
-import React, { FC, useState, useEffect } from "react";
+import React, { FC, useState, useEffect, useCallback } from "react";
 
 import { RouteComponentProps } from "@reach/router";
 import { IUserProps } from "../dtos/user.dto";
@@ -9,18 +9,38 @@ import { BackendClient } from "../clients/backend.client";
 
 const backendClient = new BackendClient();
 
+const PAGE_SIZE = 10;
+
 export const DashboardPage: FC<RouteComponentProps> = () => {
   const [users, setUsers] = useState<IUserProps[]>([]);
-  const loading = true;
+  const [loading, setLoading] = useState(true);
+  const [currentPageNumber,setCurrentPageNumber] = useState(1);
+
+  const getPage = useCallback((pageNumber: number) => {
+    const start = (pageNumber - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return users.slice(start, end);
+  }, [users]);
 
   useEffect(() => {
     const fetchData = async () => {
       const result = await backendClient.getAllUsers();
       setUsers(result.data);
+      setLoading(false);
+      setCurrentPageNumber(1);
     };
 
-    fetchData();
-  });
+    try {
+
+      fetchData();
+    } catch (error) {
+      console.log(error);
+      setLoading(false);
+    }
+
+  }, []);
+
+
 
   return (
     <div style={{ paddingTop: "30px" }}>
@@ -39,12 +59,15 @@ export const DashboardPage: FC<RouteComponentProps> = () => {
         ) : (
           <div>
             {users.length
-              ? users.map((user) => {
+              ? getPage(currentPageNumber).map((user) => {
                   return <UserCard key={user.id} {...user} />;
                 })
               : null}
           </div>
         )}
+        <button onClick={() => setCurrentPageNumber(currentPageNumber - 1)} disabled={currentPageNumber === 1}>Previous</button>
+        <button onClick={() => setCurrentPageNumber(currentPageNumber + 1)} disabled={currentPageNumber === Math.ceil(users.length / PAGE_SIZE)}>Next</button>
+        <div>{currentPageNumber}/{users.length/PAGE_SIZE}</div>
       </div>
     </div>
   );
